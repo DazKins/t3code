@@ -201,7 +201,20 @@ describe("composerSubmissionIntentForKey", () => {
           isDraftThread: true,
           event: modEnter,
         }),
-      ).toBe("background");
+      ).toBe(requiresModifier ? "foreground" : "background");
+      const draft = { ...input, platform, sendShortcut, prompt, isDraftThread: true };
+      expect(
+        composerSubmissionIntentForKey({
+          ...draft,
+          event: { ...modEnter, shiftKey: true },
+        }),
+      ).toBe(requiresModifier ? "background" : null);
+      expect(composerSubmissionIntentForKey({ ...draft, event: enter })).toBe(
+        requiresModifier ? null : "foreground",
+      );
+      expect(
+        composerSubmissionIntentForKey({ ...draft, event: { ...enter, shiftKey: true } }),
+      ).toBeNull();
       expect(
         composerSubmissionIntentForKey({ ...running, event: { ...enter, shiftKey: true } }),
       ).toBeNull();
@@ -250,6 +263,33 @@ describe("composerSubmissionIntentForKey", () => {
     ).toBeNull();
   });
 
+  it("honors the send preference with an existing install's saved background binding", () => {
+    const keybindings = mergeWithDefaultKeybindings(
+      compileResolvedKeybindingsConfig([
+        {
+          key: "mod+enter",
+          command: "composer.sendBackground",
+          when: "composerFocus && draftThreadRoute",
+        },
+      ]),
+    );
+    const draft = {
+      ...input,
+      keybindings,
+      isDraftThread: true,
+      sendShortcut: "mod-enter" as const,
+    };
+    expect(composerSubmissionIntentForKey({ ...draft, event: { ...enter, ctrlKey: true } })).toBe(
+      "foreground",
+    );
+    expect(
+      composerSubmissionIntentForKey({
+        ...draft,
+        event: { ...enter, ctrlKey: true, shiftKey: true },
+      }),
+    ).toBe("background");
+  });
+
   it.each([
     ["mod+arrowup", { key: "ArrowUp", ctrlKey: true }],
     ["shift+tab", { key: "Tab", shiftKey: true }],
@@ -263,6 +303,7 @@ describe("composerSubmissionIntentForKey", () => {
       composerSubmissionIntentForKey({
         ...input,
         keybindings,
+        sendShortcut: "mod-enter",
         isDraftThread: true,
         event: { ...enter, ...event },
       }),
